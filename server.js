@@ -8,19 +8,17 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ limit: '100mb', extended: true }));
-
+app.use(express.json());
 
 // NVIDIA NIM API configuration
-const NIM_API_BASE = process.env.NIM_API_BASE || 'https://integrate.api.nvidia.com/v1/chat/completions';
-const NIM_API_KEY = process.env.NIM_API_KEY; // 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
+const NIM_API_BASE = process.env.NIM_API_BASE || 'https://integrate.api.nvidia.com/v1';
+const NIM_API_KEY = process.env.NIM_API_KEY; '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'
 
 // 🔥 REASONING DISPLAY TOGGLE - Shows/hides reasoning in output
-const SHOW_REASONING = true; // Set to false to hide reasoning from output
+const SHOW_REASONING = false; // Set to true to show reasoning with <think> tags
 
 // 🔥 THINKING MODE TOGGLE - Enables thinking for specific models that support it
-const ENABLE_THINKING_MODE = false; // Set to false to disable chat_template_kwargs thinking parameter
+const ENABLE_THINKING_MODE = false; // Set to true to enable chat_template_kwargs thinking parameter
 
 // Model mapping (adjust based on available NIM models)
 const MODEL_MAPPING = {
@@ -139,11 +137,9 @@ app.post('/v1/chat/completions', async (req, res) => {
                 const reasoning = data.choices[0].delta.reasoning_content;
                 const content = data.choices[0].delta.content;
                 
-                // Handle reasoning toggle
                 if (SHOW_REASONING) {
                   let combinedContent = '';
                   
-                  // Add <think> tag at start of reasoning
                   if (reasoning && !reasoningStarted) {
                     combinedContent = '<think>\n' + reasoning;
                     reasoningStarted = true;
@@ -151,7 +147,6 @@ app.post('/v1/chat/completions', async (req, res) => {
                     combinedContent = reasoning;
                   }
                   
-                  // Close </think> and add content when reasoning ends
                   if (content && reasoningStarted) {
                     combinedContent += '</think>\n\n' + content;
                     reasoningStarted = false;
@@ -164,7 +159,6 @@ app.post('/v1/chat/completions', async (req, res) => {
                     delete data.choices[0].delta.reasoning_content;
                   }
                 } else {
-                  // Reasoning disabled - only show content
                   if (content) {
                     data.choices[0].delta.content = content;
                   } else {
@@ -196,7 +190,6 @@ app.post('/v1/chat/completions', async (req, res) => {
         choices: response.data.choices.map(choice => {
           let fullContent = choice.message?.content || '';
           
-          // Handle reasoning based on toggle
           if (SHOW_REASONING && choice.message?.reasoning_content) {
             fullContent = '<think>\n' + choice.message.reasoning_content + '\n</think>\n\n' + fullContent;
           }
@@ -223,7 +216,6 @@ app.post('/v1/chat/completions', async (req, res) => {
   } catch (error) {
     console.error('Proxy error:', error.message);
     
-    // Return OpenAI-compatible error
     res.status(error.response?.status || 500).json({
       error: {
         message: error.message || 'Internal server error',
